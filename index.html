@@ -39,6 +39,75 @@
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
 
+    // Web Audio API Synthesizer
+    let audioCtx = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === "suspended") {
+        audioCtx.resume();
+      }
+    }
+
+    const sound = {
+      flap() {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.type = "sine";
+        const now = audioCtx.currentTime;
+        osc.frequency.setValueAtTime(320, now);
+        osc.frequency.exponentialRampToValueAtTime(560, now + 0.1);
+
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+
+        osc.start(now);
+        osc.stop(now + 0.1);
+      },
+      score() {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.type = "triangle";
+        const now = audioCtx.currentTime;
+        osc.frequency.setValueAtTime(523.25, now); // C5
+        osc.frequency.setValueAtTime(659.25, now + 0.08); // E5
+
+        gain.gain.setValueAtTime(0.3, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+        osc.start(now);
+        osc.stop(now + 0.22);
+      },
+      hit() {
+        if (!audioCtx) return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.type = "sawtooth";
+        const now = audioCtx.currentTime;
+        osc.frequency.setValueAtTime(160, now);
+        osc.frequency.exponentialRampToValueAtTime(40, now + 0.25);
+
+        gain.gain.setValueAtTime(0.4, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+
+        osc.start(now);
+        osc.stop(now + 0.25);
+      }
+    };
+
     // Game state
     let frames = 0;
     let score = 0;
@@ -118,6 +187,7 @@
       },
       flap() {
         this.velocity = this.jump;
+        sound.flap();
       },
       reset() {
         this.y = 280;
@@ -157,7 +227,6 @@
         }
       },
       update() {
-        // Spawn pipes every 100 frames
         if (frames % 100 === 0) {
           const minHeight = 50;
           const maxHeight = canvas.height - 80 - this.gap - minHeight;
@@ -182,6 +251,7 @@
           if (!p.passed && p.x + this.width < bird.x) {
             score++;
             p.passed = true;
+            sound.score();
           }
 
           // Remove off-screen pipes
@@ -196,7 +266,6 @@
       }
     };
 
-    // Ground and Background
     function drawEnvironment() {
       // Ground
       ctx.fillStyle = "#ded895";
@@ -243,6 +312,9 @@
     }
 
     function endGame() {
+      if (gameState !== "GAMEOVER") {
+        sound.hit();
+      }
       gameState = "GAMEOVER";
       if (score > highScore) {
         highScore = score;
@@ -251,6 +323,8 @@
     }
 
     function handleAction() {
+      initAudio(); // Required to unlock audio on modern mobile browsers
+
       if (gameState === "START") {
         gameState = "PLAYING";
         bird.flap();
